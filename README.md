@@ -1,14 +1,13 @@
 # weather-api
 
 [![License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](/LICENSE)
-[![Build Status](https://travis-ci.com/robertoduessmann/weather-api.svg?branch=master)](https://travis-ci.com/robertoduessmann/weather-api)
 [![Go Report Card](https://goreportcard.com/badge/github.com/robertoduessmann/weather-api)](https://goreportcard.com/report/github.com/robertoduessmann/weather-api)
 [![GoDoc](https://godoc.org/github.com/robertoduessmann/weather-api?status.svg)](https://godoc.org/github.com/robertoduessmann/weather-api)
 
 > A REST API to check the current weather.
 
-> https://goweather.herokuapp.com/weather/Curitiba<br />
-https://goweather.herokuapp.com/weather/{city}
+> http://goweather.xyz/weather/Berlin<br />
+http://goweather.xyz/weather/{city}
 
 ## Build locally (Mac users)
 ```sh
@@ -47,9 +46,15 @@ curl http://localhost:3000/weather/Curitiba
    ]
 }
 ```
-## Web version
-A web client of the API is also available: https://reacttempo.netlify.app/ <br />
-The project can be found in https://github.com/GabrielCampos99/appTempo.
+## Web Version
+
+Few web clients of the API and their Projects:
+
+1. **Client:** [https://reacttempo.netlify.app/](https://reacttempo.netlify.app/)  
+   **Project:** [https://github.com/GabrielCampos99/appTempo](https://github.com/GabrielCampos99/appTempo)
+
+2. **Client:** [https://emaniaditya.github.io/weather-app](https://emaniaditya.github.io/weather-app)  
+   **Project:** [https://github.com/emaniaditya/weather-app/](https://github.com/emaniaditya/weather-app/)
 
 ## License
 The MIT License ([MIT](https://github.com/robertoduessmann/weather-api/blob/master/LICENSE))

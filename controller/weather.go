@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/mux"
+	"github.com/robertoduessmann/weather-api/cache"
 	"github.com/robertoduessmann/weather-api/model"
 	"github.com/robertoduessmann/weather-api/parser"
 )
@@ -30,7 +32,26 @@ func CurrentWeather(w http.ResponseWriter, r *http.Request) {
 	var err error
 
 	city := getCity(r)
+	cacheKey := fmt.Sprintf("html-%s", city)
+
+	cacheManager := cache.NewCacheManager()
+	weatherCache := cacheManager.NewCache("weather-html", 2*time.Minute)
+
+	if cached, found := weatherCache.Get(cacheKey); found {
+		log.Printf("[CACHE HIT] key=%s", cacheKey)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(cached.([]byte))
+		return
+	}
+
+	log.Printf("[CACHE MISS] key=%s", cacheKey)
 	resp := getExternalWeather(city)
+	if resp == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, string(toJSON(model.ErrorMessage{Message: "NOT_FOUND"})))
+		return
+	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 200 {
@@ -43,9 +64,10 @@ func CurrentWeather(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, string(toJSON(model.ErrorMessage{Message: "NOT_FOUND"})))
 	} else {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, string(toJSON(weather)))
+		result := toJSON(weather)
+		weatherCache.Put(cacheKey, result)
+		w.Write(result)
 	}
-
 }
 
 func getCity(r *http.Request) string {
@@ -53,28 +75,44 @@ func getCity(r *http.Request) string {
 }
 
 func getExternalWeather(city string) *http.Response {
-	resp, err := http.Get("https://wttr.in/" + city + "?m")
+	url := "https://wttr.in/" + city + "?m"
+	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal("Cannot open url: ", err)
+		log.Printf("Warning: failed to fetch weather for %s: %v", city, err)
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Warning: weather API for %s returned status %d", city, resp.StatusCode)
+		resp.Body.Close()
+		return nil
 	}
 	return resp
 }
 
 func parse(resp *http.Response, weather *model.Weather) error {
+	if resp == nil {
+		return errors.New("response is nil")
+	}
+	defer resp.Body.Close()
+
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Error parsing response body: %v", err)
+		return err
 	}
+
 	weather.Description = parser.Parse(doc, descriptionTags)
 	weather.Temperature = parser.Parse(doc, temperatureTags)
 	if len(weather.Temperature) > 0 {
-		weather.Temperature = weather.Temperature + " °C"
+		weather.Temperature += " °C"
 	}
 
 	weather.Wind = parser.Parse(doc, windTags)
 	if len(weather.Wind) > 0 {
-		weather.Wind = weather.Wind + " km/h"
+		weather.Wind += " km/h"
 	}
+
 	if notFound(weather) {
 		return errors.New("NOT_FOUND")
 	}
@@ -89,17 +127,13 @@ func parse(resp *http.Response, weather *model.Weather) error {
 }
 
 func notFound(weather *model.Weather) bool {
-	if len(weather.Description) == 0 {
-		return true
-	}
-
-	return false
+	return len(weather.Description) == 0
 }
 
 func toJSON(object interface{}) []byte {
-	respose, err := json.Marshal(object)
+	response, err := json.Marshal(object)
 	if err != nil {
 		fmt.Println(err)
 	}
-	return respose
+	return response
 }
